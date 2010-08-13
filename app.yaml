@@ -1,0 +1,13 @@
+application: transauth
+version: 1
+runtime: python
+api_version: 1
+
+handlers:
+- url: /admin.*
+  script: $PYTHON_LIB/google/appengine/ext/admin
+- url: /stats.*
+  script: $PYTHON_LIB/google/appengine/ext/appstats/ui.py
+
+- url: /.*
+  script: transauth.py

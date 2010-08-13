@@ -1,0 +1,26 @@
+Destination account number is: 2000111122223333
+Amount to be transfered: 15000.50
+Please enter pin 7654 to verify transaction
+
+aes block size 16 bytes
+
+account 16 0-9
+amount 11 0-9, always include cents and remove .
+pin 4
+
+DPD(31 digits) = 13 bytes
+DPD+13 bytes
+
+public key version
+------------------
+version (1), keylen(1), pubkey(var 33), encryptedlength(1), encrypteddata(var 16)
+1+1+33+1+16 = 52 bytes
+version number is 1
+
+
+secret key version
+------------------
+
+version (2), keyid(6), encrypteddata(16)
+2+6+16 = 24
+version number is 2
