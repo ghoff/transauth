@@ -46,11 +46,13 @@ def dpdpack(data):
 	for i in range(0,len(input),12):
 		output = output + bcd2dpd(input[i:i+12])
 	if extra == 1:
-		return output[3:].hex.lstrip('0x')
+		result = output[3:].hex
 	elif extra == 2:
-		return output[6:].hex.lstrip('0x')
+		result = output[6:].hex
 	else:
-		return output.hex.lstrip('0x')
+		result = output.hex
+	#remove leading 0x without stripping 0s that follow
+	return result[2:]
 	
 	
 def dpdunpack(data):
@@ -67,8 +69,9 @@ def dpdunpack(data):
 	else:
 		output = Bits()
 	for i in range(0,len(input),10):
-		output = output + dpd2bcd(input[i:i+10])
-	return output.hex.lstrip('0x')	
+		output += dpd2bcd(input[i:i+10])
+	#remove leading 0x
+	return output.hex[2:]
 	
 
 if __name__ == '__main__':
