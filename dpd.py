@@ -1,4 +1,4 @@
-from bitstring import BitString, Bits
+from bitstring import BitString as Bits
 
 # Densely Packed Decimal based on specification at
 # from http://speleotrove.com/decimal/DPDecimal.html
