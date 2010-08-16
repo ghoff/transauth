@@ -16,24 +16,85 @@
 #  or download it from http://www.gnu.org/licenses/gpl.txt
 
 from google.appengine.ext import db
-from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from gaesessions import get_current_session
+import os, binascii, authutil, logging
+
+class transdata(db.Model):
+	id = db.IntegerProperty(required=True)
+	enckey = db.StringProperty(required=True)
 
 class index(webapp.RequestHandler):
 	def get(self):
-		self.response.headers['Content-Type'] = 'text/html'
 		session = get_current_session()
-		if "count" in session:
-			self.response.out.write(str(session["count"])+"<br>\n")
-			if session["count"] == 30: self.response.out.write("you win<br>\n")
-			session["count"] += 1
+		anticsrf = binascii.b2a_hex(os.urandom(16))
+		session['anticsrf'] = anticsrf
+		path = os.path.join(os.path.dirname(__file__), 'templates/index.html')
+		self.response.out.write(template.render(path, { 'anticsrf':anticsrf } ))
+
+
+class register(webapp.RequestHandler):
+	def get(self):
+		query = transdata.all()
+		query.order('-id')
+		results = query.fetch(limit=1)
+		if len(results) == 0:
+			id = 1
 		else:
-			session["count"] = 1
-		self.response.out.write("hello world<br>\n")
-		self.response.out.write('<a href="reset">reset</a>')
+			id = results[0].id + 1
+		newkey = binascii.b2a_hex(os.urandom(16))
+		keydata = transdata(id=id, enckey=newkey)
+		keydata.put()
+		keyline = '%d, %s' % (id,newkey)
+		path = os.path.join(os.path.dirname(__file__), 'templates/register.html')
+		self.response.out.write(template.render(path, { 'keyline':keyline } ))
+		
+
+class transaction(webapp.RequestHandler):
+	def post(self):
+		session = get_current_session()
+		id = self.request.get('id')
+		dest = self.request.get('dest')
+		quantity = "".join(self.request.get('quantity').split('.'))
+		anticsrf = self.request.get('anticsrf')
+		if anticsrf != session['anticsrf']:
+			self.response.out.write('bad session!!')
+			return
+		#import struct
+		#pin = str(struct.unpack('H',os.urandom(2))[0]%10000)
+		pin = str(int(binascii.b2a_hex(os.urandom(2)),16) % 10000)
+		data = authutil.dataencode(dest,quantity,pin)
+
+		query = transdata.all()
+		query.filter('id =', int(id)) 
+		results = query.fetch(limit=1)
+		key = binascii.a2b_hex(results[0].enckey)
+		#logging.info('data = %s' % binascii.b2a_hex(data))
+
+		ct = authutil.encrypt_data(key,data)
+		message = authutil.build_message(id, ct)
+		message = binascii.b2a_base64(message).rstrip('\n')
+
+		d = {'dest':dest, 'quantity':"%.2f" % (float(quantity)/100),'message':message}
+		session['data']=d
+		session['pin']='0'*(4-len(pin))+pin
+		path = os.path.join(os.path.dirname(__file__), 'templates/transaction.html')
+		self.response.out.write(template.render(path, d))
+
+
+class validate(webapp.RequestHandler):
+	def post(self):
+		session = get_current_session()
+		d = {'data':session['data']}
+		pin = self.request.get('pin')
+		if pin != session['pin']: d['success'] = 0
+		else: d['success'] = 1
+		session.terminate()
+		path = os.path.join(os.path.dirname(__file__), 'templates/validate.html')
+		self.response.out.write(template.render(path, d))
+
 
 class reset(webapp.RequestHandler):
 	def get(self):
@@ -42,7 +103,9 @@ class reset(webapp.RequestHandler):
 		self.response.out.write("")
 
 application = webapp.WSGIApplication(
-	[('/reset.*', reset),
+	[('/register.*', register),
+	('/transaction',transaction),
+	('/validate',validate),
 	('/.*', index)],
 	debug=False)
 
