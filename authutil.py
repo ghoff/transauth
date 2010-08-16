@@ -21,16 +21,15 @@ from Crypto.Cipher import AES
 
 def dataencode(account, amount, pin):
 	""" Encode 31 base 10 numbers to 13 or fewer bytes and prefix with DP """
-	data = dpd.dpdpack('0'*(16-len(account))+account+'0'*(11-len(amount))+amount+pin)
+	data = str('0'*(16-len(account))+account+'0'*(11-len(amount))+amount+'0'*(4-len(pin))+pin)
+	data = dpd.dpdpack(data)
 	data = "DPD" + binascii.a2b_hex(data)
 	return(data)
 
 
 def datadecode(input):
 	""" Verify prefix DP and expand densely packed decimal """
-	if input[:3] != "DPD":
-		print "bad version number"
-		return [0,0,0]
+	if input[:3] != "DPD": raise Exception, "bad version number"
 	data=binascii.b2a_hex(input[3:])
 	data=dpd.dpdunpack(data)
 	account=data[0:16]
@@ -40,18 +39,21 @@ def datadecode(input):
 
 
 def build_message(keyid, ciphertext):
-	""" keyid 6 bytes, ciphertext 16 bytes """
-	data = chr(2) + chr(0) + keyid + ciphertext
+	""" keyid 3 bytes, ciphertext 16 bytes """
+	#Theres got to be a bettter way to do this
+	data = str("TAM" + chr(2) + chr(0) + '0'*(3-len(keyid))+keyid) + ciphertext
 	return(data)
 
 
 def split_message(data):
-	offset = 0
-	version = ord(data[offset]) + ord(data[offset+1])
+	offset = 3
+	if data[:3] != "TAM": raise Exception, "Message decode failed"
+	version = ord(data[offset]) + 16 * ord(data[offset+1])
+	if version != 2: raise Exception, "Message version mismatch"
 	#TODO: do something with version
-	offset += 2
-	keyid = data[offset:offset+6]
-	offset += 6
+	offset += 2 #version length
+	keyid = data[offset:offset+3]
+	offset += 3 #keyid length
 	crypt = data[offset:]
 	return(keyid, crypt)
 
@@ -68,8 +70,5 @@ def decrypt_data(key, data):
 	return(result)
 
 
-def test():
-	pass
-
 if __name__ == "__main__":
-	test()
+	pass
