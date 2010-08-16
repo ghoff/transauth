@@ -21,6 +21,6 @@ version number is 1
 secret key version
 ------------------
 
-version (2), keyid(6), encrypteddata(16)
+messageid(3), version (2), keyid(3), encrypteddata(16)
 2+6+16 = 24
 version number is 2
