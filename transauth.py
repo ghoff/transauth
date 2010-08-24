@@ -57,11 +57,21 @@ class transaction(webapp.RequestHandler):
 		session = get_current_session()
 		id = self.request.get('id')
 		dest = self.request.get('dest')
-		quantity = "".join(self.request.get('quantity').split('.'))
+
+		dollarscents = self.request.get('quantity').split('.')
+		if len(dollarscents) > 2:
+			self.response.out.write('bad quantity!!')
+			return
+		if len(dollarscents) == 1:
+			dollarscents.append("00")
+		cenlen = len(dollarscents[1])
+		quantity = dollarscents[0] + dollarscents[1] + '0' * (2 - cenlen)
+
 		anticsrf = self.request.get('anticsrf')
 		if anticsrf != session['anticsrf']:
 			self.response.out.write('bad session!!')
 			return
+
 		#import struct
 		#pin = str(struct.unpack('H',os.urandom(2))[0]%10000)
 		pin = str(int(binascii.b2a_hex(os.urandom(2)),16) % 10000)
@@ -70,12 +80,16 @@ class transaction(webapp.RequestHandler):
 		query = transdata.all()
 		query.filter('id =', int(id)) 
 		results = query.fetch(limit=1)
+		if len(results) != 1:
+			self.response.out.write('bad id!!')
+			return
+
 		key = binascii.a2b_hex(results[0].enckey)
 		#logging.info('data = %s' % binascii.b2a_hex(data))
 
 		ct = authutil.encrypt_data(key,data)
-		message = authutil.build_message(id, ct)
-		message = binascii.b2a_base64(message).rstrip('\n')
+		message = authutil.build_message(id.encode('utf-8'), ct)
+		message = binascii.b2a_base64(message).rstrip()
 
 		d = {'dest':dest, 'quantity':"%.2f" % (float(quantity)/100),'message':message}
 		session['data']=d
@@ -112,5 +126,5 @@ application = webapp.WSGIApplication(
 def main():
 	run_wsgi_app(application)
 
-#if __name__ == "__main__":
-#	main()
+if __name__ == "__main__":
+	main()
