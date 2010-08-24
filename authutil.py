@@ -21,8 +21,8 @@ from Crypto.Cipher import AES
 
 def dataencode(account, amount, pin):
 	""" Encode 31 base 10 numbers to 13 or fewer bytes and prefix with DP """
-	data = str('0'*(16-len(account))+account+'0'*(11-len(amount))+amount+'0'*(4-len(pin))+pin)
-	data = dpd.dpdpack(data)
+	data = '0'*(16-len(account))+account+'0'*(11-len(amount))+amount+'0'*(4-len(pin))+pin
+	data = dpd.dpdpack(data.encode("utf-8"))
 	data = "DPD" + binascii.a2b_hex(data)
 	return(data)
 
@@ -40,8 +40,7 @@ def datadecode(input):
 
 def build_message(keyid, ciphertext):
 	""" keyid 3 bytes, ciphertext 16 bytes """
-	#Theres got to be a bettter way to do this
-	data = str("TAM" + chr(2) + chr(0) + '0'*(3-len(keyid))+keyid) + ciphertext
+	data = "TAM" + chr(2) + chr(0) + '0'*(3-len(keyid)) + keyid + ciphertext
 	return(data)
 
 

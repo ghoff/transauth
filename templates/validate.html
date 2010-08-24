@@ -7,7 +7,8 @@
   </head>
   <body>
   {% if success %}
-    Transaction complete. {{ data.quantity }} was transfered to account number {{data.dest}}
+    Transaction complete. {{ data.quantity }} was transfered to account number {{data.dest}}<br>
+    Return <a href="/">home</a>
   {% else %}
     Pin validation failed.  Please begin <a href="/">again</a>.
   {% endif %}
