@@ -20,7 +20,16 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from gaesessions import get_current_session
-import os, binascii, authutil, logging
+import os, binascii, authutil, logging, string
+
+def validate_input(allowed, inp):
+	if allowed == None:
+		allowed = string.ascii_letters + string.digits + "-_"
+	inp = inp.encode('ascii')
+	delete_table = string.maketrans(allowed, ' ' * len(allowed))
+	table = string.maketrans('', '')
+        return(inp.translate(table, delete_table))
+
 
 class transdata(db.Model):
 	id = db.IntegerProperty(required=True)
@@ -53,21 +62,27 @@ class register(webapp.RequestHandler):
 		
 
 class transaction(webapp.RequestHandler):
+	def get(self):
+		self.post()
 	def post(self):
 		session = get_current_session()
-		id = self.request.get('id')
-		dest = self.request.get('dest')
+		allowed = string.digits
+		id = validate_input(allowed, self.request.get('id'))
+		dest = validate_input(allowed, self.request.get('dest'))
 
-		dollarscents = self.request.get('quantity').split('.')
+		dollarscents = validate_input(allowed + ".", self.request.get('quantity')).split('.')
 		if len(dollarscents) > 2:
 			self.response.out.write('bad quantity!!')
 			return
 		if len(dollarscents) == 1:
 			dollarscents.append("00")
 		cenlen = len(dollarscents[1])
-		quantity = dollarscents[0] + dollarscents[1] + '0' * (2 - cenlen)
+		if (cenlen > 2):
+			quantity = dollarscents[0] + dollarscents[1][:2]
+		else:
+			quantity = dollarscents[0] + dollarscents[1] + '0' * (2 - cenlen)
 
-		anticsrf = self.request.get('anticsrf')
+		anticsrf = validate_input(string.hexdigits, self.request.get('anticsrf'))
 		if anticsrf != session['anticsrf']:
 			self.response.out.write('bad session!!')
 			return
@@ -102,7 +117,7 @@ class validate(webapp.RequestHandler):
 	def post(self):
 		session = get_current_session()
 		d = {'data':session['data']}
-		pin = self.request.get('pin')
+		pin = validate_input(string.digits, self.request.get('pin'))
 		if pin != session['pin']: d['success'] = 0
 		else: d['success'] = 1
 		session.terminate()
