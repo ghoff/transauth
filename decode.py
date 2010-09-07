@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import authutil, binascii, sys
+import authutil, binascii, sys, base64
 
 
 def main():
@@ -14,7 +14,7 @@ def main():
 		keyid, key = line.split(',')
 		keys[keyid] = key.strip()
 
-	message = binascii.a2b_base64(sys.argv[1])
+	message = base64.urlsafe_b64decode(sys.argv[1])
 	kid, ct = authutil.split_message(message)
 	kid = kid.lstrip('0')
 	key = binascii.a2b_hex(keys[kid])

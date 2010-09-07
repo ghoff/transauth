@@ -22,7 +22,7 @@ from Crypto.Cipher import AES
 def dataencode(account, amount, pin):
 	""" Encode 31 base 10 numbers to 13 or fewer bytes and prefix with DP """
 	data = '0'*(16-len(account))+account+'0'*(11-len(amount))+amount+'0'*(4-len(pin))+pin
-	data = dpd.dpdpack(data.encode("utf-8"))
+	data = dpd.dpdpack(data)
 	data = "DPD" + binascii.a2b_hex(data)
 	return(data)
 

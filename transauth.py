@@ -20,12 +20,12 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from gaesessions import get_current_session
-import os, binascii, authutil, logging, string
+import os, binascii, authutil, logging, string, base64
 
 def validate_input(allowed, inp):
 	if allowed == None:
 		allowed = string.ascii_letters + string.digits + "-_"
-	inp = inp.encode('ascii')
+	inp = inp.encode('UTF-8')
 	delete_table = string.maketrans(allowed, ' ' * len(allowed))
 	table = string.maketrans('', '')
         return(inp.translate(table, delete_table))
@@ -68,11 +68,20 @@ class transaction(webapp.RequestHandler):
 		session = get_current_session()
 		allowed = string.digits
 		id = validate_input(allowed, self.request.get('id'))
+		if len(id) > 3:
+			self.response.out.write('id too long!!')
+			return
 		dest = validate_input(allowed, self.request.get('dest'))
+		if len(dest) > 16:
+			self.response.out.write('destination account too long!!')
+			return
 
 		dollarscents = validate_input(allowed + ".", self.request.get('quantity')).split('.')
 		if len(dollarscents) > 2:
 			self.response.out.write('bad quantity!!')
+			return
+		if len(dollarscents[0]) > 9:
+			self.response.out.write('quantity too large!!')
 			return
 		if len(dollarscents) == 1:
 			dollarscents.append("00")
@@ -103,8 +112,8 @@ class transaction(webapp.RequestHandler):
 		#logging.info('data = %s' % binascii.b2a_hex(data))
 
 		ct = authutil.encrypt_data(key,data)
-		message = authutil.build_message(id.encode('utf-8'), ct)
-		message = binascii.b2a_base64(message).rstrip()
+		message = authutil.build_message(id, ct)
+		message = base64.urlsafe_b64encode(message)
 
 		d = {'dest':dest, 'quantity':"%.2f" % (float(quantity)/100),'message':message}
 		session['data']=d
@@ -118,6 +127,9 @@ class validate(webapp.RequestHandler):
 		session = get_current_session()
 		d = {'data':session['data']}
 		pin = validate_input(string.digits, self.request.get('pin'))
+		if len(pin) > 4:
+			self.response.out.write('pin too long!!')
+			return
 		if pin != session['pin']: d['success'] = 0
 		else: d['success'] = 1
 		session.terminate()
