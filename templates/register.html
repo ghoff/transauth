@@ -3,12 +3,23 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
-    <title>ID Registration</title>
+    <title>Register for key</title>
   </head>
   <body>
-   Save the line below to <i>keys.list</i>
-   <pre>{{keyline}}</pre>
-   Return <a href="/">home</a>
+    <h3>Please solve captcha to generate a new key</h3>
+    <form action="/register" method="post">
+      <script type="text/javascript"> RecaptchaOptions = { theme : "white" }; </script>
+      <script type="text/javascript" 
+	src="http://www.google.com/recaptcha/api/challenge?k={{key}}{{error}}">
+      </script>
+      <noscript>
+         <iframe src="http://www.google.com/recaptcha/api/noscript?k={{key}}{{error}}"
+             height="300" width="800" frameborder="0"></iframe><br>
+         <textarea name="recaptcha_challenge_field" rows="3" cols="80"></textarea>
+         <input type="hidden" name="recaptcha_response_field" value="manual_challenge">
+         <p><input type="submit" value="Submit"></p>
+      </noscript>
+    </form>
   </body>
 </html>
 

@@ -19,8 +19,11 @@ from google.appengine.ext import db
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
+from google.appengine.api import urlfetch
 from gaesessions import get_current_session
 import os, binascii, authutil, logging, string, base64
+import urllib, recaptcha
+
 
 def validate_input(allowed, inp):
 	if allowed == None:
@@ -28,12 +31,13 @@ def validate_input(allowed, inp):
 	inp = inp.encode('UTF-8')
 	delete_table = string.maketrans(allowed, ' ' * len(allowed))
 	table = string.maketrans('', '')
-        return(inp.translate(table, delete_table))
+	return(inp.translate(table, delete_table))
 
 
 class transdata(db.Model):
 	id = db.IntegerProperty(required=True)
 	enckey = db.StringProperty(required=True)
+
 
 class index(webapp.RequestHandler):
 	def get(self):
@@ -43,23 +47,6 @@ class index(webapp.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'templates/index.html')
 		self.response.out.write(template.render(path, { 'anticsrf':anticsrf } ))
 
-
-class register(webapp.RequestHandler):
-	def get(self):
-		query = transdata.all()
-		query.order('-id')
-		results = query.fetch(limit=1)
-		if len(results) == 0:
-			id = 1
-		else:
-			id = results[0].id + 1
-		newkey = binascii.b2a_hex(os.urandom(16))
-		keydata = transdata(id=id, enckey=newkey)
-		keydata.put()
-		keyline = '%d, %s' % (id,newkey)
-		path = os.path.join(os.path.dirname(__file__), 'templates/register.html')
-		self.response.out.write(template.render(path, { 'keyline':keyline } ))
-		
 
 class transaction(webapp.RequestHandler):
 	def get(self):
@@ -137,17 +124,64 @@ class validate(webapp.RequestHandler):
 		self.response.out.write(template.render(path, d))
 
 
-class reset(webapp.RequestHandler):
+class register(webapp.RequestHandler):
+	def post(self):
+		result = self.checkcaptcha()
+		if result[0] != 'true':
+			d = { 'key': recaptcha.public_key, 'error' : "&error=%s" % result[1] }
+			path = os.path.join(os.path.dirname(__file__), 'templates/register.html')
+			self.response.out.write(template.render(path, d))
+			return
+		query = transdata.all()
+		query.order('-id')
+		results = query.fetch(limit=1)
+		if len(results) == 0:
+			id = 1
+		else:
+			id = results[0].id + 1
+		newkey = binascii.b2a_hex(os.urandom(16))
+		keydata = transdata(id=id, enckey=newkey)
+		keydata.put()
+		keyline = '%d, %s' % (id,newkey)
+		path = os.path.join(os.path.dirname(__file__), 'templates/register2.html')
+		self.response.out.write(template.render(path, { 'keyline':keyline } ))
+
+
 	def get(self):
-		session = get_current_session()
-		session.terminate()
-		self.response.out.write("")
+		d = { 'key': recaptcha.public_key }
+		path = os.path.join(os.path.dirname(__file__), 'templates/register.html')
+		self.response.out.write(template.render(path, d))
+
+
+	def checkcaptcha(self):
+		recaptcha_challenge_field = self.request.get('recaptcha_challenge_field')
+		recaptcha_response_field = self.request.get('recaptcha_response_field')
+		if len(recaptcha_challenge_field)==0 or len(recaptcha_response_field)==0:
+			return ['false', 'incorrect-captcha-sol']
+		ip = self.request.remote_addr
+		#logging.info('recaptcha_challenge_field=%s' % recaptcha_challenge_field)
+		#logging.info('recaptcha_response_field=%s' % recaptcha_response_field)
+		params = urllib.urlencode({ 'remoteip': ip,
+			'privatekey':recaptcha.private_key,
+			'challenge': recaptcha_challenge_field,
+			'response': recaptcha_response_field})
+		result = urlfetch.fetch(url="http://www.google.com/recaptcha/api/verify",
+			payload=params, method=urlfetch.POST,
+			headers={'Content-Type': 'application/x-www-form-urlencoded'})
+		return(result.content.splitlines())
+
+
+#class reset(webapp.RequestHandler):
+#	def get(self):
+#		session = get_current_session()
+#		session.terminate()
+#		self.response.out.write("")
 
 application = webapp.WSGIApplication(
-	[('/register.*', register),
+	[('/register', register),
 	('/transaction',transaction),
 	('/validate',validate),
-	('/.*', index)],
+	('/', index)],
 	debug=False)
 
 def main():
