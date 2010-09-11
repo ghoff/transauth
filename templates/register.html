@@ -4,14 +4,44 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
     <title>Register for key</title>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+    <script type="text/javascript">
+	function resulthandler(data)
+	{
+		if (data.error)
+		{
+			// send a new challenge
+			Recaptcha.reload();
+			// let the reload finish before displaying the error
+			window.setTimeout(function() {
+			$("#recaptcha_widget_div").addClass("recaptcha_had_incorrect_sol");
+			$("#recaptcha_widget_div").removeClass("recaptcha_nothad_incorrect_sol");
+			}, 200);
+		}
+		else
+		{
+			$("#recaptcha_widget_div").hide();
+			$("#results").append("Save the line below to <i>keys.list</i>")
+			$("#results").append("<pre>"+data.keyline+"</pre>");
+			$("#results").append('Return <a href="/">home</a>');
+		}
+	}
+	$(document).ready(function(){
+		$("#register").submit(function(event){
+			event.preventDefault();
+			$.post('/register', $("#register").serialize()+"&ajax=1", resulthandler , "json");
+		});
+	});
+    </script>
   </head>
   <body>
     <h3>Please solve captcha to generate a new key</h3>
-    <form action="/register" method="post">
+    <form action="/register" id="register" method="post">
       <script type="text/javascript"> RecaptchaOptions = { theme : "white" }; </script>
       <script type="text/javascript" 
 	src="http://www.google.com/recaptcha/api/challenge?k={{key}}{{error}}">
       </script>
+      <div id="results"></div>
       <noscript>
          <iframe src="http://www.google.com/recaptcha/api/noscript?k={{key}}{{error}}"
              height="300" width="800" frameborder="0"></iframe><br>
@@ -22,4 +52,3 @@
     </form>
   </body>
 </html>
-

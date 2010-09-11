@@ -21,6 +21,7 @@ from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.api import urlfetch
 from gaesessions import get_current_session
+from django.utils import simplejson
 import os, binascii, authutil, logging, string, base64
 import urllib, recaptcha
 
@@ -128,10 +129,16 @@ class register(webapp.RequestHandler):
 	def post(self):
 		result = self.checkcaptcha()
 		if result[0] != 'true':
-			d = { 'key': recaptcha.public_key, 'error' : "&error=%s" % result[1] }
-			path = os.path.join(os.path.dirname(__file__), 'templates/register.html')
-			self.response.out.write(template.render(path, d))
-			return
+			if self.request.get('ajax'):
+				self.response.headers.add_header("Content-Type", "application/json")
+				self.response.out.write(simplejson.dumps({'error':1}))
+				return
+			else:
+				d = { 'key': recaptcha.public_key, 'error' : "&error=%s" % result[1] }
+				path = os.path.join(os.path.dirname(__file__), 'templates/register.html')
+				self.response.out.write(template.render(path, d))
+				return
+
 		query = transdata.all()
 		query.order('-id')
 		results = query.fetch(limit=1)
@@ -143,8 +150,12 @@ class register(webapp.RequestHandler):
 		keydata = transdata(id=id, enckey=newkey)
 		keydata.put()
 		keyline = '%d, %s' % (id,newkey)
-		path = os.path.join(os.path.dirname(__file__), 'templates/register2.html')
-		self.response.out.write(template.render(path, { 'keyline':keyline } ))
+		if self.request.get('ajax'):
+			self.response.headers.add_header("Content-Type", "application/json")
+			self.response.out.write(simplejson.dumps({'error':0,'keyline':keyline}))
+		else:
+			path = os.path.join(os.path.dirname(__file__), 'templates/register2.html')
+			self.response.out.write(template.render(path, { 'keyline':keyline } ))
 
 
 	def get(self):
