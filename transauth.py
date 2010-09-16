@@ -56,7 +56,7 @@ class transaction(webapp.RequestHandler):
 		session = get_current_session()
 		allowed = string.digits
 		id = validate_input(allowed, self.request.get('id'))
-		if len(id) > 3:
+		if len(id) < 1 or len(id) > 3:
 			self.response.out.write('id too long!!')
 			return
 		dest = validate_input(allowed, self.request.get('dest'))
