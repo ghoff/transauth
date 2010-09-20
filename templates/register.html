@@ -14,16 +14,16 @@
 			Recaptcha.reload();
 			// let the reload finish before displaying the error
 			window.setTimeout(function() {
-			$("#recaptcha_widget_div").addClass("recaptcha_had_incorrect_sol");
-			$("#recaptcha_widget_div").removeClass("recaptcha_nothad_incorrect_sol");
+				$("#recaptcha_widget_div").addClass("recaptcha_had_incorrect_sol");
+				$("#recaptcha_widget_div").removeClass("recaptcha_nothad_incorrect_sol");
 			}, 200);
 		}
 		else
 		{
 			$("#recaptcha_widget_div").hide();
-			$("#results").append("Save the line below to <i>keys.list</i>")
-			$("#results").append("<pre>"+data.keyline+"</pre>");
-			$("#results").append('Return <a href="/">home</a>');
+			$("#results").append("Save the line below to <i>keys.list<\/i>");
+			$("#results").append("<pre>"+data.keyline+"<\/pre>");
+			$("#results").append("Return <a href=\"/\">home<\/a>");
 		}
 	}
 	$(document).ready(function(){
@@ -40,6 +40,11 @@
       <script type="text/javascript"> RecaptchaOptions = { theme : "white" }; </script>
       <script type="text/javascript" 
 	src="http://www.google.com/recaptcha/api/challenge?k={{key}}{{error}}">
+      </script>
+      <script type="text/javascript">
+	window.setTimeout(function() {
+		$("#recaptcha_response_field").focus();
+	}, 200);
       </script>
       <div id="results"></div>
       <noscript>
