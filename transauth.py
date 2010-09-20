@@ -182,6 +182,12 @@ class register(webapp.RequestHandler):
 		return(result.content.splitlines())
 
 
+class error404(webapp.RequestHandler):
+	def get(self):
+		self.error(404)
+		self.response.out.write("no such page")
+
+
 #class reset(webapp.RequestHandler):
 #	def get(self):
 #		session = get_current_session()
@@ -192,7 +198,8 @@ application = webapp.WSGIApplication(
 	[('/register', register),
 	('/transaction',transaction),
 	('/validate',validate),
-	('/', index)],
+	('/', index),
+	('.*', error404)],
 	debug=False)
 
 def main():
