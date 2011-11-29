@@ -101,9 +101,12 @@ class transaction(webapp.RequestHandler):
 
 		ct = authutil.encrypt_data(key,data)
 		message = authutil.build_message(id, ct)
-		message = base64.urlsafe_b64encode(message)
+		#message = base64.urlsafe_b64encode(message)
+		message = base64.b32encode(message).rstrip('=')
+		qrcode = "https://chart.googleapis.com/chart?" \
+		+ "choe=ISO-8859-1&chs=150x150&cht=qr&chl=%s" % message
 
-		d = {'dest':dest, 'quantity':"%.2f" % (float(quantity)/100),'message':message}
+		d = {'dest':dest, 'quantity':"%.2f" % (float(quantity)/100),'message':message, 'qrcode':qrcode}
 		session['data']=d
 		session['pin']='0'*(4-len(pin))+pin
 		path = os.path.join(os.path.dirname(__file__), 'templates/transaction.html')
