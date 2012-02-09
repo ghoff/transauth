@@ -24,6 +24,7 @@ from gaesessions import get_current_session
 from django.utils import simplejson
 import os, binascii, authutil, logging, string, base64
 import urllib, recaptcha
+from google.appengine.dist import use_library
 
 
 def validate_input(allowed, inp):
@@ -39,6 +40,10 @@ class transdata(db.Model):
 	id = db.IntegerProperty(required=True)
 	enckey = db.StringProperty(required=True)
 
+class atransdata(db.Model):
+	id = db.IntegerProperty(required=True)
+	regid = db.StringProperty(required=True)
+
 
 class index(webapp.RequestHandler):
 	def get(self):
@@ -48,14 +53,42 @@ class index(webapp.RequestHandler):
 		path = os.path.join(os.path.dirname(__file__), 'templates/index.html')
 		self.response.out.write(template.render(path, { 'anticsrf':anticsrf } ))
 
+#android
+class aregister(webapp.RequestHandler):
+	def post(self):
+		session = get_current_session()
+		registration = self.request.get('registrationid')
+		#logging.info('data = %s' % registration)
+		query = atransdata.all()
+		query.order('-id')
+		results = query.fetch(limit=1)
+		if len(results) == 0:
+			did = 1
+		else:
+			did = results[0].id + 1
+		regdata = atransdata(id=did, regid=registration)
+		regdata.put()
+		did = 'A' + did
+		logging.info('id = %s data = %s' % (did, registration))
+		self.response.headers.add_header("Content-Type", "application/json")
+		self.response.out.write(simplejson.dumps({'error':0,'refid':did}))
+		return
+
 
 class transaction(webapp.RequestHandler):
 	def get(self):
 		self.post()
 	def post(self):
+		android = 0
+		qrcode = ""
+		message = ""
 		session = get_current_session()
 		allowed = string.digits
-		id = validate_input(allowed, self.request.get('id'))
+		id = self.request.get('id')
+		if (id[0] == 'a' or id[0] == 'A'):
+			android = 1
+			id = id[1:]
+		id = validate_input(allowed, id)
 		if len(id) < 1 or len(id) > 3:
 			self.response.out.write('id too long!!')
 			return
@@ -84,27 +117,41 @@ class transaction(webapp.RequestHandler):
 			self.response.out.write('bad session!!')
 			return
 
-		#import struct
-		#pin = str(struct.unpack('H',os.urandom(2))[0]%10000)
-		pin = str(int(binascii.b2a_hex(os.urandom(2)),16) % 10000)
-		data = authutil.dataencode(dest,quantity,pin)
+		#pin = str(int(binascii.b2a_hex(os.urandom(2)),16) % 10000)
+		pin = "%04d" % (int(binascii.b2a_hex(os.urandom(2)),16) % 10000)
 
-		query = transdata.all()
-		query.filter('id =', int(id)) 
-		results = query.fetch(limit=1)
-		if len(results) != 1:
-			self.response.out.write('bad id!!')
-			return
+		if android:
+			query = atransdata.all()
+			query.filter('id =', int(id))
+			results = query.fetch(limit=1)
+			if len(results) != 1:
+				self.response.out.write('bad id!!')
+				return
+			params = urllib.urlencode({ 'registration_id': results[0].regid,
+				'data.amount': float(quantity)/100, 'data.pin': pin,
+				'data.account': dest, 'collapse_key': '0' })
+			headers={'Content-Type': 'application/x-www-form-urlencoded',
+				'Authorization': 'GoogleLogin auth=' + recaptcha.google_auth}
+			result = urlfetch.fetch(url="https://android.apis.google.com/c2dm/send",
+				payload=params, method=urlfetch.POST, validate_certificate=False,
+				headers=headers)
+		else:
+			data = authutil.dataencode(dest,quantity,pin)
 
-		key = binascii.a2b_hex(results[0].enckey)
-		#logging.info('data = %s' % binascii.b2a_hex(data))
+			query = transdata.all()
+			query.filter('id =', int(id)) 
+			results = query.fetch(limit=1)
+			if len(results) != 1:
+				self.response.out.write('bad id!!')
+				return
 
-		ct = authutil.encrypt_data(key,data)
-		message = authutil.build_message(id, ct)
-		#message = base64.urlsafe_b64encode(message)
-		message = base64.b32encode(message).rstrip('=')
-		qrcode = "https://chart.googleapis.com/chart?" \
-		+ "choe=ISO-8859-1&chs=150x150&cht=qr&chl=%s" % message
+			key = binascii.a2b_hex(results[0].enckey)
+
+			ct = authutil.encrypt_data(key,data)
+			message = authutil.build_message(id, ct)
+			message = base64.b32encode(message).rstrip('=')
+			qrcode = "https://chart.googleapis.com/chart?" \
+			+ "choe=ISO-8859-1&chs=150x150&cht=qr&chl=%s" % message
 
 		d = {'dest':dest, 'quantity':"%.2f" % (float(quantity)/100),'message':message, 'qrcode':qrcode}
 		session['data']=d
@@ -191,6 +238,7 @@ class error404(webapp.RequestHandler):
 		self.response.out.write("no such page")
 
 
+use_library('django', '0.96')
 #class reset(webapp.RequestHandler):
 #	def get(self):
 #		session = get_current_session()
@@ -199,6 +247,7 @@ class error404(webapp.RequestHandler):
 
 application = webapp.WSGIApplication(
 	[('/register', register),
+	('/aregister',aregister),
 	('/transaction',transaction),
 	('/validate',validate),
 	('/', index),
