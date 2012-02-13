@@ -24,7 +24,6 @@ from gaesessions import get_current_session
 from django.utils import simplejson
 import os, binascii, authutil, logging, string, base64
 import urllib, recaptcha
-from google.appengine.dist import use_library
 
 
 def validate_input(allowed, inp):
@@ -68,8 +67,8 @@ class aregister(webapp.RequestHandler):
 			did = results[0].id + 1
 		regdata = atransdata(id=did, regid=registration)
 		regdata.put()
-		did = 'A' + did
-		logging.info('id = %s data = %s' % (did, registration))
+		did = 'A' + str(did)
+		#logging.info('id = %s data = %s' % (did, registration))
 		self.response.headers.add_header("Content-Type", "application/json")
 		self.response.out.write(simplejson.dumps({'error':0,'refid':did}))
 		return
@@ -238,7 +237,6 @@ class error404(webapp.RequestHandler):
 		self.response.out.write("no such page")
 
 
-use_library('django', '0.96')
 #class reset(webapp.RequestHandler):
 #	def get(self):
 #		session = get_current_session()
